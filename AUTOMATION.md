@@ -60,10 +60,11 @@
 
 ### 智能更新检测
 
+- **基于稳定版本**：只监听 SiYuan 的正式发布版本（GitHub Releases）
+- **版本比较**：比较 `.github/last-siyuan-version` 中记录的版本标签  
 - **首次构建**：如果没有构建记录，执行构建
-- **变更检测**：比较 `.github/last-siyuan-commit` 中记录的提交
-- **强制构建**：手动触发时可选择忽略变更检查
-- **构建记录**：每次成功构建后更新提交记录
+- **强制构建**：手动触发时可选择忽略版本检查
+- **构建记录**：每次成功构建后更新版本记录
 
 ## 🛠 本地开发
 
@@ -136,7 +137,7 @@ rm app.zip app/src/main/assets/app.zip
 
 - **SiYuan 仓库**：`citrusjunoss/siyuan`
 - **监听分支**：`main`（可通过手动触发指定其他分支）
-- **构建缓存**：`.github/last-siyuan-commit` 文件记录
+- **构建缓存**：`.github/last-siyuan-version` 文件记录
 
 ## 🎯 使用场景
 

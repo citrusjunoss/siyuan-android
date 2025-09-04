@@ -28,10 +28,19 @@ jobs:
         with:
           fetch-depth: 2
           
+      - name: Get latest SiYuan release
+        id: get_release
+        run: |
+          echo "🔍 Getting latest SiYuan release..."
+          LATEST_TAG=$(curl -s https://api.github.com/repos/siyuan-note/siyuan/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "📦 Latest tag: $LATEST_TAG"
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          
       - name: Checkout SiYuan project
         uses: actions/checkout@v3
         with:
           repository: siyuan-note/siyuan
+          ref: ${{ steps.get_release.outputs.tag }}
           path: siyuan
           
       - name: Debug repository access
@@ -55,7 +64,7 @@ jobs:
           cd siyuan
           echo "🔍 Getting Git information..."
           git status
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD)
+          VERSION="${{ steps.get_release.outputs.tag }}"
           COMMIT=$(git rev-parse HEAD)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "commit=$COMMIT" >> $GITHUB_OUTPUT
@@ -72,18 +81,20 @@ jobs:
             exit 0
           fi
           
-          # 检查上次构建的 SiYuan commit
-          LAST_COMMIT_FILE=".github/last-siyuan-commit"
-          if [ -f "$LAST_COMMIT_FILE" ]; then
-            LAST_COMMIT=$(cat "$LAST_COMMIT_FILE")
-            echo "📋 Last built commit: $LAST_COMMIT"
-            echo "🆕 Current commit: ${{ steps.siyuan_info.outputs.commit }}"
+          # 检查上次构建的 SiYuan 版本
+          LAST_VERSION_FILE=".github/last-siyuan-version"
+          CURRENT_VERSION="${{ steps.siyuan_info.outputs.version }}"
+          
+          if [ -f "$LAST_VERSION_FILE" ]; then
+            LAST_VERSION=$(cat "$LAST_VERSION_FILE")
+            echo "📋 Last built version: $LAST_VERSION"
+            echo "🆕 Current version: $CURRENT_VERSION"
             
-            if [ "$LAST_COMMIT" != "${{ steps.siyuan_info.outputs.commit }}" ]; then
-              echo "✅ SiYuan has updates, will build"
+            if [ "$LAST_VERSION" != "$CURRENT_VERSION" ]; then
+              echo "✅ SiYuan has new release, will build"
               echo "should_build=true" >> $GITHUB_OUTPUT
             else
-              echo "⏭️ No changes in SiYuan, skipping build"
+              echo "⏭️ Same version as last build, skipping"
               echo "should_build=false" >> $GITHUB_OUTPUT
             fi
           else
@@ -101,10 +112,19 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           
+      - name: Get latest SiYuan release
+        id: get_release
+        run: |
+          echo "🔍 Getting latest SiYuan release..."
+          LATEST_TAG=$(curl -s https://api.github.com/repos/siyuan-note/siyuan/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "📦 Latest tag: $LATEST_TAG"
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          
       - name: Checkout SiYuan project
         uses: actions/checkout@v3
         with:
           repository: siyuan-note/siyuan
+          ref: ${{ steps.get_release.outputs.tag }}
           path: siyuan
           
       - name: Setup Node.js
@@ -185,19 +205,19 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 30
           
-      - name: Update last commit record
+      - name: Update last version record
         run: |
           mkdir -p .github
-          echo "${{ needs.check-siyuan-updates.outputs.siyuan_commit }}" > .github/last-siyuan-commit
+          echo "${{ needs.check-siyuan-updates.outputs.siyuan_version }}" > .github/last-siyuan-version
           
       - name: Commit last build info (if changed)
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          if [ -n "$(git status --porcelain .github/last-siyuan-commit)" ]; then
-            git add .github/last-siyuan-commit
-            git commit -m "chore: update last SiYuan commit to ${{ needs.check-siyuan-updates.outputs.siyuan_version }} (${{ needs.check-siyuan-updates.outputs.siyuan_commit }})"
+          if [ -n "$(git status --porcelain .github/last-siyuan-version)" ]; then
+            git add .github/last-siyuan-version
+            git commit -m "chore: update last SiYuan version to ${{ needs.check-siyuan-updates.outputs.siyuan_version }}"
             git push
           else
             echo "No changes to commit"
