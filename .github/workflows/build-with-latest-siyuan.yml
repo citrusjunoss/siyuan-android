@@ -344,7 +344,14 @@ jobs:
           if [ -n "$(git status --porcelain .github/last-siyuan-version)" ]; then
             git add .github/last-siyuan-version
             git commit -m "chore: update last SiYuan version to ${{ needs.check-siyuan-updates.outputs.siyuan_version }}"
-            git push
+            
+            # Handle potential conflicts by pulling first
+            echo "🔄 Attempting to push version update..."
+            if ! git push; then
+              echo "⚠️  Push failed, pulling latest changes and retrying..."
+              git pull --rebase origin main
+              git push
+            fi
           else
             echo "No changes to commit"
           fi
