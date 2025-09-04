@@ -1,0 +1,65 @@
+name: Build Android with Latest Assets
+
+on:
+  repository_dispatch:
+    types: [assets-updated]
+  workflow_dispatch:
+    inputs:
+      download_url:
+        description: 'app.zip download URL'
+        required: false
+        default: 'https://github.com/citrusjunoss/siyuan/releases/download/latest-assets/app.zip'
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Android project
+        uses: actions/checkout@v4
+        
+      - name: Download latest app.zip
+        run: |
+          DOWNLOAD_URL="${{ github.event.client_payload.download_url || github.event.inputs.download_url || 'https://github.com/citrusjunoss/siyuan/releases/download/latest-assets/app.zip' }}"
+          echo "Downloading from: $DOWNLOAD_URL"
+          
+          mkdir -p app/src/main/assets
+          curl -L -o app/src/main/assets/app.zip "$DOWNLOAD_URL"
+          
+          # 验证下载的文件
+          if [ -f app/src/main/assets/app.zip ]; then
+            echo "✅ app.zip downloaded successfully"
+            echo "📊 Size: $(du -h app/src/main/assets/app.zip | cut -f1)"
+            echo "📋 Contents preview:"
+            unzip -l app/src/main/assets/app.zip | head -10
+          else
+            echo "❌ Failed to download app.zip"
+            exit 1
+          fi
+          
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        
+      - name: Build Android APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-debug
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+          
+      - name: Build info
+        run: |
+          echo "## Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Assets Version**: ${{ github.event.client_payload.version || 'latest' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Date**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "- **APK Size**: $(du -h app/build/outputs/apk/debug/*.apk | cut -f1)" >> $GITHUB_STEP_SUMMARY

@@ -66,21 +66,21 @@ unzip -l app.zip | head -20
 echo "..."
 echo "📊 总大小: $(du -h app.zip | cut -f1)"
 
-# 复制到 Android 项目
-echo "📋 复制到 Android 项目..."
+# 移动到 Android 项目根目录
+echo "📋 移动到 Android 项目..."
 cd "$ANDROID_PATH"
-mkdir -p app/src/main/assets
-cp "$SIYUAN_PATH/app.zip" app/src/main/assets/
+mv "$SIYUAN_PATH/app.zip" ./
 
 echo "✅ 构建完成!"
-echo "📁 app.zip 已复制到: app/src/main/assets/app.zip"
+echo "📁 app.zip 已生成: $(pwd)/app.zip"
 echo "🎯 SiYuan 版本: $SIYUAN_VERSION"
-
-# 清理临时文件
-rm -f "$SIYUAN_PATH/app.zip"
+echo "📊 文件大小: $(du -h app.zip | cut -f1)"
 
 echo ""
-echo "🔄 下一步:"
-echo "  1. 测试构建: ./gradlew assembleDebug"
-echo "  2. 提交更改: git add app/src/main/assets/app.zip && git commit -m 'chore: update app.zip to $SIYUAN_VERSION'"
-echo "  3. 推送代码: git push"
+echo "🔄 使用方法:"
+echo "  1. 手动测试: 复制 app.zip 到 app/src/main/assets/"
+echo "     mkdir -p app/src/main/assets && cp app.zip app/src/main/assets/"
+echo "  2. 构建应用: ./gradlew assembleDebug"
+echo "  3. 生产使用: 上传到 GitHub Releases 或使用 CI/CD"
+echo ""
+echo "💡 提示: 此文件不应提交到版本控制，建议添加到 .gitignore"

@@ -1,43 +1,60 @@
 # SiYuan Android 自动化构建
 
-本文档说明如何自动化构建和更新 SiYuan Android 应用的资源文件 (`app.zip`)。
+本文档说明如何自动化构建和使用 SiYuan Android 应用的资源文件 (`app.zip`)。
+
+## 🎯 新方案说明
+
+**app.zip 不再提交到版本控制**，而是通过以下方式使用：
+
+1. **GitHub Actions 构建** - 自动构建并发布到 Releases
+2. **按需下载** - Android 构建时自动下载最新版本
+3. **本地开发** - 使用脚本本地构建测试
 
 ## 📁 文件说明
 
 ### GitHub Actions 工作流
 
-- **`.github/workflows/sync-assets.yml`** - 完整版工作流，支持 PR 模式
-- **`.github/workflows/sync-assets-simple.yml`** - 简化版工作流，直接推送更新
+- **`build-app-zip.yml`** - 在 SiYuan 项目中构建 app.zip 并发布
+- **`build-android.yml`** - Android 项目构建，自动下载最新 assets
 
 ### 脚本工具
 
-- **`scripts/build-app-zip.sh`** - 本地构建脚本，用于手动构建和测试
+- **`scripts/build-app-zip.sh`** - 本地构建脚本，用于开发和测试
 
-## 🤖 自动化方案
+## 🤖 自动化工作流
 
-### 方案一：定时同步（推荐）
+### 方案：构建 + 发布 + 下载
 
-工作流 `sync-assets-simple.yml` 会：
+#### 1. SiYuan 项目自动构建 (`build-app-zip.yml`)
 
-1. **触发时机**：
-   - 每天凌晨 2:00 自动运行
-   - 手动触发（在 GitHub Actions 页面）
+**触发时机**：
+- 每天凌晨 2:00 自动运行
+- 手动触发
+- 打 tag 时自动构建
 
-2. **工作流程**：
-   - 检出 SiYuan Android 项目
-   - 检出 SiYuan 主项目最新代码
-   - 构建前端资源 (`pnpm run build`)
-   - 打包资源文件为 `app.zip`
-   - 更新到 Android 项目的 `app/src/main/assets/`
-   - 自动提交并推送更改
+**工作流程**：
+1. 检出 `citrusjunoss/siyuan` 项目
+2. 构建前端资源 (`pnpm run build`)
+3. 打包为 `app.zip`
+4. 上传为 GitHub Artifact（保留30天）
+5. 发布到 GitHub Releases (`latest-assets` tag)
+6. 触发 Android 项目构建
 
-### 方案二：Pull Request 模式
+#### 2. Android 项目自动构建 (`build-android.yml`)
 
-工作流 `sync-assets.yml` 会创建 PR 而不是直接推送，适合需要代码审查的场景。
+**触发时机**：
+- 收到 `assets-updated` 事件
+- 手动触发（可指定下载地址）
+
+**工作流程**：
+1. 从 GitHub Releases 下载最新 `app.zip`
+2. 放置到 `app/src/main/assets/`
+3. 构建 Android APK
+4. 上传 APK 到 Artifacts
 
 ## 🛠 本地开发
 
-### 手动构建 app.zip
+### 构建 app.zip
 
 ```bash
 # 确保 SiYuan 项目在上级目录
@@ -47,89 +64,115 @@
 ./scripts/build-app-zip.sh /path/to/siyuan
 ```
 
+### 测试 Android 构建
+
+```bash
+# 1. 构建 app.zip
+./scripts/build-app-zip.sh
+
+# 2. 复制到 assets 目录
+mkdir -p app/src/main/assets
+cp app.zip app/src/main/assets/
+
+# 3. 构建 Android 应用
+./gradlew assembleDebug
+```
+
 ### 前置要求
 
-1. **Node.js** >= 20
-2. **pnpm** 10.13.1
-3. **SiYuan 项目** 需要在 `../siyuan` 或指定路径
+- **Node.js** >= 20
+- **pnpm** 10.13.1
+- **Java** 17 (Android 构建)
+- **SiYuan 项目** 需要在指定路径
 
-## 📋 工作流详情
+## 🚀 使用场景
 
-### 输入文件（来自 SiYuan 主项目）
+### 开发模式
+
+1. **本地快速测试**：使用 `build-app-zip.sh` 脚本
+2. **版本验证**：手动指定特定版本的 app.zip
+3. **调试构建**：在本地验证资源文件正确性
+
+### 生产模式
+
+1. **自动更新**：CI/CD 自动下载最新 assets
+2. **版本控制**：通过 Releases 管理不同版本的 assets
+3. **分布式构建**：Android 构建不依赖本地 SiYuan 项目
+
+## 📋 资源文件内容
+
+### 来源（SiYuan 项目）
 
 ```
 app/
 ├── appearance/          # 外观主题、图标、字体
-├── changelogs/         # 版本更新日志
+├── changelogs/         # 版本更新日志  
 ├── guide/              # 用户指南文档
 └── stage/              # 舞台相关文件
 ```
 
-### 输出文件
+### 输出
 
-- `app/src/main/assets/app.zip` - Android 应用资源包
-
-### 构建过程
-
-1. **克隆项目** - 获取最新的 SiYuan 源码
-2. **安装依赖** - `pnpm install` 在 `app/` 目录
-3. **构建资源** - `pnpm run build` 编译前端资源
-4. **打包文件** - 使用 `zip` 打包指定目录
-5. **更新资源** - 复制到 Android 项目的 assets 目录
-6. **提交更改** - 自动 commit 并 push
-
-### 版本跟踪
-
-- 提交信息包含 SiYuan 的版本标签
-- 格式：`chore: update app.zip from SiYuan v3.2.1`
+- **构建产物**：`app.zip` (不提交到版本控制)
+- **使用位置**：`app/src/main/assets/app.zip` (构建时)
+- **发布位置**：GitHub Releases
 
 ## 🔧 配置说明
 
-### 环境要求
+### 环境变量
 
-GitHub Actions 环境已包含所需工具：
-- Ubuntu Latest
-- Node.js 20
-- pnpm 10.13.1
-- Git
+无需特殊配置，使用默认的 `GITHUB_TOKEN`
 
-### 权限设置
+### 权限要求
 
-使用默认的 `GITHUB_TOKEN`，具有：
-- 读取仓库内容
-- 推送到当前仓库
-- 创建 Pull Request（如需要）
+- **读取仓库**：下载源码和 releases
+- **创建 releases**：发布 app.zip
+- **触发工作流**：跨仓库事件通信
+
+### 下载地址
+
+- **最新版本**：`https://github.com/citrusjunoss/siyuan/releases/download/latest-assets/app.zip`
+- **特定版本**：通过 GitHub Releases API 或手动指定
 
 ## 📊 监控和调试
 
 ### 查看构建状态
 
-1. 访问 GitHub 仓库的 **Actions** 标签页
-2. 查看最近的工作流运行状态
-3. 点击具体运行查看详细日志
+1. **SiYuan 项目**：
+   - Actions: `build-app-zip.yml`
+   - Releases: 查看 `latest-assets`
 
-### 手动触发构建
+2. **Android 项目**：
+   - Actions: `build-android.yml`
+   - Artifacts: 下载构建的 APK
 
-1. 进入 **Actions** 页面
-2. 选择对应的工作流
-3. 点击 **Run workflow** 按钮
+### 手动操作
 
-### 常见问题
+```bash
+# 手动下载最新 app.zip
+curl -L -o app.zip https://github.com/citrusjunoss/siyuan/releases/download/latest-assets/app.zip
 
-1. **构建失败**：检查 SiYuan 项目是否有破坏性更改
-2. **权限错误**：确认 GitHub Token 权限正确
-3. **文件过大**：检查 app.zip 大小是否超出限制
+# 验证内容
+unzip -l app.zip
 
-## 🔄 更新策略
+# 使用指定版本
+curl -L -o app.zip https://github.com/citrusjunoss/siyuan/releases/download/v3.2.1/app.zip
+```
 
-- **增量更新**：只在文件确实发生变化时才提交
-- **版本追踪**：每次更新都会记录对应的 SiYuan 版本
-- **自动化程度**：完全自动化，无需人工干预
+## ✅ 优势
 
-## 🎯 使用场景
+1. **版本控制干净**：大文件不进入 Git 历史
+2. **构建分离**：SiYuan 和 Android 项目独立构建
+3. **按需更新**：可以选择使用特定版本的 assets
+4. **缓存友好**：构建产物可重复使用
+5. **存储优化**：通过 GitHub Releases 管理大文件
 
-1. **日常维护**：自动跟上 SiYuan 主项目的更新
-2. **版本发布**：确保 Android 版本使用最新资源
-3. **开发测试**：本地快速构建最新资源包
+## 🔄 工作流程图
 
-这套自动化方案确保 SiYuan Android 应用始终使用最新的 UI 资源和文档，减少手动维护工作量。
+```
+SiYuan 更新 → 自动构建 app.zip → 发布到 Releases → 触发 Android 构建 → 生成 APK
+     ↓                ↓                    ↓                ↓              ↓
+  代码变更          CI/CD构建            Release管理        自动下载        产物交付
+```
+
+这种方案既保持了自动化的便利性，又避免了在版本控制中存储大型二进制文件的问题。
