@@ -1,0 +1,203 @@
+name: Build Android with Latest SiYuan Assets
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 每天凌晨2点检查SiYuan更新
+  workflow_dispatch:
+    inputs:
+      siyuan_ref:
+        description: 'SiYuan branch/tag to build from'
+        required: false
+        default: 'main'
+      force_build:
+        description: 'Force build even if no changes'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  check-siyuan-updates:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check_changes.outputs.should_build }}
+      siyuan_version: ${{ steps.siyuan_info.outputs.version }}
+      siyuan_commit: ${{ steps.siyuan_info.outputs.commit }}
+    steps:
+      - name: Checkout Android project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # 需要历史记录来比较
+          
+      - name: Checkout SiYuan project
+        uses: actions/checkout@v4
+        with:
+          repository: citrusjunoss/siyuan
+          ref: ${{ github.event.inputs.siyuan_ref || 'main' }}
+          path: siyuan
+          
+      - name: Get SiYuan info
+        id: siyuan_info
+        run: |
+          cd siyuan
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD)
+          COMMIT=$(git rev-parse HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "📦 SiYuan Version: $VERSION"
+          echo "🔍 SiYuan Commit: $COMMIT"
+          
+      - name: Check for changes
+        id: check_changes
+        run: |
+          # 检查是否有强制构建标志
+          if [[ "${{ github.event.inputs.force_build }}" == "true" ]]; then
+            echo "🔄 Force build requested"
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # 检查上次构建的 SiYuan commit
+          LAST_COMMIT_FILE=".github/last-siyuan-commit"
+          if [ -f "$LAST_COMMIT_FILE" ]; then
+            LAST_COMMIT=$(cat "$LAST_COMMIT_FILE")
+            echo "📋 Last built commit: $LAST_COMMIT"
+            echo "🆕 Current commit: ${{ steps.siyuan_info.outputs.commit }}"
+            
+            if [ "$LAST_COMMIT" != "${{ steps.siyuan_info.outputs.commit }}" ]; then
+              echo "✅ SiYuan has updates, will build"
+              echo "should_build=true" >> $GITHUB_OUTPUT
+            else
+              echo "⏭️ No changes in SiYuan, skipping build"
+              echo "should_build=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "🆕 First build, will proceed"
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
+
+  build-android:
+    needs: check-siyuan-updates
+    if: needs.check-siyuan-updates.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Android project
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Checkout SiYuan project
+        uses: actions/checkout@v4
+        with:
+          repository: citrusjunoss/siyuan
+          ref: ${{ github.event.inputs.siyuan_ref || 'main' }}
+          path: siyuan
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '10.13.1'
+          
+      - name: Build SiYuan assets
+        run: |
+          cd siyuan/app
+          echo "📦 Installing dependencies..."
+          pnpm install
+          echo "🔨 Building assets..."
+          pnpm run build
+          
+      - name: Create app.zip
+        run: |
+          cd siyuan
+          echo "📋 Creating app.zip..."
+          zip -r ../app.zip \
+            app/appearance \
+            app/changelogs \
+            app/guide \
+            app/stage
+          
+          # 验证创建的文件
+          cd ..
+          if [ -f app.zip ]; then
+            echo "✅ app.zip created successfully"
+            echo "📊 Size: $(du -h app.zip | cut -f1)"
+            echo "📋 Contents preview:"
+            unzip -l app.zip | head -15
+          else
+            echo "❌ Failed to create app.zip"
+            exit 1
+          fi
+          
+      - name: Prepare Android assets
+        run: |
+          mkdir -p app/src/main/assets
+          mv app.zip app/src/main/assets/
+          echo "📁 app.zip moved to assets directory"
+          
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        
+      - name: Build Android APK
+        run: |
+          chmod +x gradlew
+          echo "🔨 Building Android APK..."
+          ./gradlew assembleDebug
+          
+          # 验证APK文件
+          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -1)
+          if [ -f "$APK_PATH" ]; then
+            echo "✅ APK built successfully: $APK_PATH"
+            echo "📊 APK Size: $(du -h "$APK_PATH" | cut -f1)"
+          else
+            echo "❌ APK build failed"
+            exit 1
+          fi
+          
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: siyuan-android-${{ needs.check-siyuan-updates.outputs.siyuan_version }}
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+          
+      - name: Update last commit record
+        run: |
+          mkdir -p .github
+          echo "${{ needs.check-siyuan-updates.outputs.siyuan_commit }}" > .github/last-siyuan-commit
+          
+      - name: Commit last build info (if changed)
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [ -n "$(git status --porcelain .github/last-siyuan-commit)" ]; then
+            git add .github/last-siyuan-commit
+            git commit -m "chore: update last SiYuan commit to ${{ needs.check-siyuan-updates.outputs.siyuan_version }} (${{ needs.check-siyuan-updates.outputs.siyuan_commit }})"
+            git push
+          else
+            echo "No changes to commit"
+          fi
+          
+      - name: Build Summary
+        run: |
+          echo "## 🎉 Build Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **SiYuan Version**: ${{ needs.check-siyuan-updates.outputs.siyuan_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **SiYuan Commit**: \`${{ needs.check-siyuan-updates.outputs.siyuan_commit }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Date**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **APK Size**: $(du -h app/build/outputs/apk/debug/*.apk | cut -f1)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- APK available in Actions artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- Retention: 30 days" >> $GITHUB_STEP_SUMMARY
