@@ -262,24 +262,44 @@ jobs:
       - name: Build Android APK
         run: |
           chmod +x gradlew
-          echo "🔨 Building Android APK..."
+          echo "🔨 Building Android Debug APKs for all product flavors..."
           ./gradlew assembleDebug --stacktrace --info
           
       - name: List build outputs for debugging
         run: |
           echo "🔍 Checking build outputs..."
-          find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
+          echo "=== Searching for all APK files ==="
+          find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found anywhere"
           
+          echo "=== Checking app/build structure ==="
           if [ -d "app/build" ]; then
-            echo "📁 app/build directory contents:"
-            find app/build -type f -name "*.apk" 2>/dev/null || echo "No APK in app/build"
+            echo "📁 app/build directory exists"
+            echo "📁 app/build/outputs structure:"
             ls -la app/build/outputs/ 2>/dev/null || echo "No outputs directory"
+            
+            echo "📁 Checking for apk directory:"
+            if [ -d "app/build/outputs/apk" ]; then
+              echo "✅ APK directory exists, checking product flavors:"
+              ls -la app/build/outputs/apk/
+              
+              echo "📱 Searching for APK files in product flavor directories:"
+              find app/build/outputs/apk -name "*.apk" -type f 2>/dev/null || echo "No APK files in flavor directories"
+            else
+              echo "❌ No APK directory found"
+            fi
           else
             echo "❌ app/build directory does not exist"
           fi
           
+          echo "=== Full directory structure for debugging ==="
+          if [ -d "app/build/outputs" ]; then
+            find app/build/outputs -type f -name "*.apk" -exec ls -la {} \; 2>/dev/null || echo "No APK files found in outputs"
+          fi
+          
       - name: Verify and locate APK
         run: |
+          echo "🔍 Locating all built APK files..."
+          
           # 查找所有可能的APK位置
           APK_FILES=$(find . -name "*.apk" -type f 2>/dev/null)
           
@@ -288,10 +308,19 @@ jobs:
             echo "$APK_FILES" | while read apk; do
               echo "  📱 $apk ($(du -h "$apk" | cut -f1))"
             done
+            
+            echo ""
+            echo "📊 APK Count by Product Flavor:"
+            find app/build/outputs/apk -name "*.apk" -type f 2>/dev/null | while read apk; do
+              flavor=$(echo "$apk" | cut -d'/' -f5)  # Extract flavor from path
+              echo "  - $flavor: $(basename "$apk")"
+            done
           else
             echo "❌ No APK files found anywhere"
             echo "🔍 Let's check what was actually built:"
             find app/build -type f 2>/dev/null | head -20
+            echo "🔍 Maybe the build failed? Let's check gradle build status:"
+            echo "Last gradle command should have shown BUILD SUCCESSFUL or BUILD FAILED"
             exit 1
           fi
           
@@ -301,7 +330,7 @@ jobs:
         with:
           name: siyuan-android-${{ needs.check-siyuan-updates.outputs.siyuan_version }}
           path: |
-            **/*.apk
+            app/build/outputs/apk/**/*.apk
           retention-days: 30
           
       - name: Update last version record
