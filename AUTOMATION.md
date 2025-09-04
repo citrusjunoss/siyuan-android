@@ -46,17 +46,19 @@
 
 **Phase 2: 构建应用** (`build-android`) - 仅在有更新时执行
 
-1. 准备构建环境（Node.js, pnpm, Java）
-2. 构建 SiYuan 前端资源 (`pnpm run build`)
-3. 创建 `app.zip` 包含：
+1. 准备构建环境（Node.js, pnpm, Go, Java, Android NDK）
+2. 构建 SiYuan 内核为 Android AAR (`gomobile bind`)
+3. 构建 SiYuan 前端资源 (`pnpm run build`)
+4. 创建 `app.zip` 包含：
    - `app/appearance` - 外观主题、图标、字体
    - `app/changelogs` - 版本更新日志
    - `app/guide` - 用户指南文档
    - `app/stage` - 舞台相关文件
-4. 将 `app.zip` 放入 Android assets 目录
-5. 构建 Android APK (`./gradlew assembleDebug`)
-6. 上传 APK 到 GitHub Artifacts
-7. 更新构建记录，避免重复构建
+5. 将 `app.zip` 放入 Android assets 目录
+6. 将 `kernel.aar` 放入 Android libs 目录
+7. 构建 Android APK (`./gradlew assembleDebug`)
+8. 上传 APK 到 GitHub Artifacts
+9. 更新构建记录，避免重复构建
 
 ### 智能更新检测
 
@@ -123,6 +125,8 @@ rm app.zip app/src/main/assets/app.zip
 - **操作系统**：Ubuntu Latest
 - **Node.js**：版本 20
 - **pnpm**：版本 10.13.1
+- **Go**：版本 1.21
+- **Android NDK**：r25c
 - **Java**：Temurin JDK 17
 - **Gradle**：通过 Gradle Wrapper
 
