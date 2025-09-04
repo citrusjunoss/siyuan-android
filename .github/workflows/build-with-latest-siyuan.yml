@@ -24,18 +24,15 @@ jobs:
       siyuan_commit: ${{ steps.siyuan_info.outputs.commit }}
     steps:
       - name: Checkout Android project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 2  # 需要历史记录来比较
+          fetch-depth: 2
           
       - name: Checkout SiYuan project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           repository: siyuan-note/siyuan
-          ref: ${{ github.event.inputs.siyuan_ref || 'main' }}
           path: siyuan
-          fetch-depth: 1
-          token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Debug repository access
         run: |
@@ -100,18 +97,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Android project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Checkout SiYuan project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           repository: siyuan-note/siyuan
-          ref: ${{ github.event.inputs.siyuan_ref || 'main' }}
           path: siyuan
-          fetch-depth: 1
-          token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Setup Node.js
         uses: actions/setup-node@v4
