@@ -136,7 +136,7 @@ rm app.zip app/src/main/assets/app.zip
 ### 资源配置
 
 - **SiYuan 仓库**：`citrusjunoss/siyuan`
-- **监听分支**：`main`（可通过手动触发指定其他分支）
+- **监听版本**：GitHub Releases 中的最新版本
 - **构建缓存**：`.github/last-siyuan-version` 文件记录
 
 ## 🎯 使用场景

@@ -32,14 +32,24 @@ jobs:
         id: get_release
         run: |
           echo "🔍 Getting latest SiYuan release..."
-          LATEST_TAG=$(curl -s https://api.github.com/repos/siyuan-note/siyuan/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-          echo "📦 Latest tag: $LATEST_TAG"
-          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          
+          # 首先尝试获取你的 fork 中的最新 release
+          LATEST_TAG=$(curl -s https://api.github.com/repos/citrusjunoss/siyuan/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          
+          # 如果没有找到 release，回退到主分支
+          if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+            echo "⚠️ No releases found in citrusjunoss/siyuan, using main branch"
+            echo "tag=main" >> $GITHUB_OUTPUT
+            echo "📦 Using branch: main"
+          else
+            echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+            echo "📦 Latest tag: $LATEST_TAG"
+          fi
           
       - name: Checkout SiYuan project
         uses: actions/checkout@v3
         with:
-          repository: siyuan-note/siyuan
+          repository: citrusjunoss/siyuan
           ref: ${{ steps.get_release.outputs.tag }}
           path: siyuan
           
@@ -64,8 +74,18 @@ jobs:
           cd siyuan
           echo "🔍 Getting Git information..."
           git status
-          VERSION="${{ steps.get_release.outputs.tag }}"
+          
+          TAG_OR_BRANCH="${{ steps.get_release.outputs.tag }}"
           COMMIT=$(git rev-parse HEAD)
+          
+          if [ "$TAG_OR_BRANCH" = "main" ]; then
+            # 如果是主分支，尝试获取最近的 tag 或使用 commit
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "main-$(git rev-parse --short HEAD)")
+          else
+            # 如果是 tag，直接使用
+            VERSION="$TAG_OR_BRANCH"
+          fi
+          
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "commit=$COMMIT" >> $GITHUB_OUTPUT
           echo "📦 SiYuan Version: $VERSION"
@@ -116,14 +136,24 @@ jobs:
         id: get_release
         run: |
           echo "🔍 Getting latest SiYuan release..."
-          LATEST_TAG=$(curl -s https://api.github.com/repos/siyuan-note/siyuan/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-          echo "📦 Latest tag: $LATEST_TAG"
-          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          
+          # 首先尝试获取你的 fork 中的最新 release
+          LATEST_TAG=$(curl -s https://api.github.com/repos/citrusjunoss/siyuan/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          
+          # 如果没有找到 release，回退到主分支
+          if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+            echo "⚠️ No releases found in citrusjunoss/siyuan, using main branch"
+            echo "tag=main" >> $GITHUB_OUTPUT
+            echo "📦 Using branch: main"
+          else
+            echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+            echo "📦 Latest tag: $LATEST_TAG"
+          fi
           
       - name: Checkout SiYuan project
         uses: actions/checkout@v3
         with:
-          repository: siyuan-note/siyuan
+          repository: citrusjunoss/siyuan
           ref: ${{ steps.get_release.outputs.tag }}
           path: siyuan
           
