@@ -69,7 +69,7 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add app/src/main/assets/app.zip
-          git commit -m "chore: update app.zip from SiYuan $(cd siyuan && git describe --tags --abbrev=0)"
+          git commit -m "chore: update app.zip from SiYuan $(cd siyuan && git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD)"
           git push
           
       - name: Create Pull Request
@@ -91,7 +91,7 @@ jobs:
             
             ## Source
             - Repository: siyuan-note/siyuan
-            - Latest version: $(cd siyuan && git describe --tags --abbrev=0)
+            - Latest version: $(cd siyuan && git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD)
             
             This update ensures the Android app has the latest UI assets and documentation.
           branch: update-assets-auto

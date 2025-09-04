@@ -52,7 +52,8 @@ jobs:
         id: siyuan_version
         run: |
           cd siyuan
-          VERSION=$(git describe --tags --abbrev=0)
+          # 尝试获取最新 tag，如果没有则使用 commit hash
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           
       - name: Check if there are changes

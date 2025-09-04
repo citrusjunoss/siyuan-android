@@ -25,7 +25,7 @@ fi
 cd "$SIYUAN_PATH"
 
 # 获取版本信息
-SIYUAN_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "unknown")
+SIYUAN_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 echo "📦 SiYuan 版本: $SIYUAN_VERSION"
 
 # 构建前端资源
