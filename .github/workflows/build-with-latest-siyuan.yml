@@ -1,8 +1,6 @@
 name: Build Android with Latest SiYuan Assets
 
 on:
-  push:
-    branches: [ main ]  # Temporary trigger for debugging
   schedule:
     - cron: '0 2 * * *'  # 每天凌晨2点检查SiYuan更新
   workflow_dispatch:
