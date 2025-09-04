@@ -31,14 +31,33 @@ jobs:
       - name: Checkout SiYuan project
         uses: actions/checkout@v4
         with:
-          repository: citrusjunoss/siyuan
+          repository: siyuan-note/siyuan
           ref: ${{ github.event.inputs.siyuan_ref || 'main' }}
           path: siyuan
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Debug repository access
+        run: |
+          echo "🔍 Checking repository access..."
+          echo "Current directory: $(pwd)"
+          echo "Directory contents:"
+          ls -la
+          if [ -d "siyuan" ]; then
+            echo "✅ SiYuan directory exists"
+            echo "SiYuan directory contents:"
+            ls -la siyuan/
+          else
+            echo "❌ SiYuan directory not found"
+            exit 1
+          fi
           
       - name: Get SiYuan info
         id: siyuan_info
         run: |
           cd siyuan
+          echo "🔍 Getting Git information..."
+          git status
           VERSION=$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD)
           COMMIT=$(git rev-parse HEAD)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -88,9 +107,11 @@ jobs:
       - name: Checkout SiYuan project
         uses: actions/checkout@v4
         with:
-          repository: citrusjunoss/siyuan
+          repository: siyuan-note/siyuan
           ref: ${{ github.event.inputs.siyuan_ref || 'main' }}
           path: siyuan
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Setup Node.js
         uses: actions/setup-node@v4
