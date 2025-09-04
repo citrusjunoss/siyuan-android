@@ -261,23 +261,45 @@ jobs:
         run: |
           chmod +x gradlew
           echo "🔨 Building Android APK..."
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace --info
           
-          # 验证APK文件
-          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -1)
-          if [ -f "$APK_PATH" ]; then
-            echo "✅ APK built successfully: $APK_PATH"
-            echo "📊 APK Size: $(du -h "$APK_PATH" | cut -f1)"
+      - name: List build outputs for debugging
+        run: |
+          echo "🔍 Checking build outputs..."
+          find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
+          
+          if [ -d "app/build" ]; then
+            echo "📁 app/build directory contents:"
+            find app/build -type f -name "*.apk" 2>/dev/null || echo "No APK in app/build"
+            ls -la app/build/outputs/ 2>/dev/null || echo "No outputs directory"
           else
-            echo "❌ APK build failed"
+            echo "❌ app/build directory does not exist"
+          fi
+          
+      - name: Verify and locate APK
+        run: |
+          # 查找所有可能的APK位置
+          APK_FILES=$(find . -name "*.apk" -type f 2>/dev/null)
+          
+          if [ -n "$APK_FILES" ]; then
+            echo "✅ Found APK files:"
+            echo "$APK_FILES" | while read apk; do
+              echo "  📱 $apk ($(du -h "$apk" | cut -f1))"
+            done
+          else
+            echo "❌ No APK files found anywhere"
+            echo "🔍 Let's check what was actually built:"
+            find app/build -type f 2>/dev/null | head -20
             exit 1
           fi
           
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: siyuan-android-${{ needs.check-siyuan-updates.outputs.siyuan_version }}
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            **/*.apk
           retention-days: 30
           
       - name: Update last version record
@@ -306,7 +328,12 @@ jobs:
           echo "- **SiYuan Version**: ${{ needs.check-siyuan-updates.outputs.siyuan_version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **SiYuan Commit**: \`${{ needs.check-siyuan-updates.outputs.siyuan_commit }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Build Date**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "- **APK Size**: $(du -h app/build/outputs/apk/debug/*.apk | cut -f1)" >> $GITHUB_STEP_SUMMARY
+          APK_FILE=$(find . -name "*.apk" -type f | head -1)
+          if [ -n "$APK_FILE" ]; then
+            echo "- **APK Size**: $(du -h "$APK_FILE" | cut -f1)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **APK Size**: Not found" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "- APK available in Actions artifacts" >> $GITHUB_STEP_SUMMARY
