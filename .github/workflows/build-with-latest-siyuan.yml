@@ -212,6 +212,19 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         
+      - name: Create signing configuration for CI
+        run: |
+          cat > signings.gradle << 'EOF'
+          android {
+            signingConfigs {
+              siyuanConfig {
+                // Empty signing config for CI builds
+                // Debug builds don't require signing
+              }
+            }
+          }
+          EOF
+        
       - name: Build Android APK
         run: |
           chmod +x gradlew
